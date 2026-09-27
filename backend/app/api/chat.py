@@ -49,7 +49,7 @@ def chat(request: ChatRequest, store: StoreDep, llm: LLMDep, settings: SettingsD
                         "filename": c.filename,
                         "page": c.page,
                         "score": c.score,
-                        "text": c.text[:400],
+                        "text": c.text,
                     }
                     for number, c in enumerate(chunks, start=1)
                 ],
