@@ -6,6 +6,7 @@ is used in tests.
 """
 
 import hashlib
+import logging
 import math
 import re
 from collections.abc import Iterator
@@ -14,6 +15,8 @@ from typing import Literal, Protocol
 from openai import OpenAI
 
 from app.core.config import Settings
+
+logger = logging.getLogger(__name__)
 
 InputType = Literal["query", "passage"]
 
@@ -27,18 +30,24 @@ class Provider(Protocol):
 
 
 class OpenAICompatibleProvider:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        name: str,
+        api_key: str | None,
+        chat_model: str,
+        embedding_model: str,
+    ) -> None:
         from app.core.config import PROVIDER_DEFAULTS
 
-        self.name = settings.effective_provider
+        self.name = name
         self.client = OpenAI(
-            api_key=settings.api_key,
-            base_url=PROVIDER_DEFAULTS[self.name]["base_url"],
-            timeout=60,
+            api_key=api_key,
+            base_url=PROVIDER_DEFAULTS[name]["base_url"],
+            timeout=120,
             max_retries=2,
         )
-        self.chat_model = settings.model_for("chat_model")
-        self.embedding_model = settings.model_for("embedding_model")
+        self.chat_model = chat_model
+        self.embedding_model = embedding_model
 
     def embed(self, texts: list[str], input_type: InputType) -> list[list[float]]:
         vectors: list[list[float]] = []
@@ -97,7 +106,54 @@ class DemoProvider:
             yield f" {word}"
 
 
+class FailoverProvider:
+    """Embeds with the primary provider and falls back to a second one for chat.
+
+    Embeddings must always come from the same model (vectors are not comparable
+    across models), but any model can write the answer. If the primary provider
+    fails before producing a token, the fallback answers instead.
+    """
+
+    def __init__(self, primary: Provider, fallback: Provider) -> None:
+        self.primary = primary
+        self.fallback = fallback
+        self.name = primary.name
+
+    def embed(self, texts: list[str], input_type: InputType) -> list[list[float]]:
+        return self.primary.embed(texts, input_type)
+
+    def stream_chat(self, messages: list[dict[str, str]]) -> Iterator[str]:
+        started = False
+        try:
+            for token in self.primary.stream_chat(messages):
+                started = True
+                yield token
+            return
+        except Exception:
+            if started:
+                raise
+            logger.warning("%s failed, answering with %s", self.primary.name, self.fallback.name)
+        yield from self.fallback.stream_chat(messages)
+
+
 def get_provider(settings: Settings) -> Provider:
-    if settings.effective_provider == "demo":
+    from app.core.config import PROVIDER_DEFAULTS
+
+    name = settings.effective_provider
+    if name == "demo":
         return DemoProvider()
-    return OpenAICompatibleProvider(settings)
+    primary = OpenAICompatibleProvider(
+        name,
+        settings.api_key,
+        settings.model_for("chat_model"),
+        settings.model_for("embedding_model"),
+    )
+    backup = "gemini" if name == "nvidia" else "nvidia"
+    backup_key = settings.gemini_api_key if backup == "gemini" else settings.nvidia_api_key
+    if not backup_key:
+        return primary
+    defaults = PROVIDER_DEFAULTS[backup]
+    fallback = OpenAICompatibleProvider(
+        backup, backup_key, defaults["chat_model"], defaults["embedding_model"]
+    )
+    return FailoverProvider(primary, fallback)
