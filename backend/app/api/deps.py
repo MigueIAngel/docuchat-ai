@@ -22,17 +22,20 @@ def get_store(settings: Annotated[Settings, Depends(get_settings)]) -> DocumentS
     return _store(str(settings.data_dir), collection)
 
 
-@lru_cache
-def _provider(provider: str, chat: str, embed: str) -> Provider:
-    return get_provider(get_settings())
+_providers: dict[tuple[str, str, str, bool], Provider] = {}
 
 
 def get_llm(settings: Annotated[Settings, Depends(get_settings)]) -> Provider:
-    return _provider(
+    """One provider per configuration, built from the injected settings."""
+    key = (
         settings.effective_provider,
         settings.model_for("chat_model"),
         settings.model_for("embedding_model"),
+        bool(settings.gemini_api_key and settings.nvidia_api_key),
     )
+    if key not in _providers:
+        _providers[key] = get_provider(settings)
+    return _providers[key]
 
 
 StoreDep = Annotated[DocumentStore, Depends(get_store)]
