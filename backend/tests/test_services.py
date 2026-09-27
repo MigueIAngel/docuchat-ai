@@ -38,3 +38,32 @@ def test_demo_embeddings_rank_related_text_higher() -> None:
     )
     similarity = lambda a, b: sum(x * y for x, y in zip(a, b, strict=True))  # noqa: E731
     assert similarity(query, related) > similarity(query, unrelated)
+
+
+class _Failing:
+    name = "primary"
+
+    def embed(self, texts, input_type):
+        return [[1.0] for _ in texts]
+
+    def stream_chat(self, messages):
+        raise TimeoutError("provider timed out")
+        yield  # pragma: no cover
+
+
+class _Answering:
+    name = "fallback"
+
+    def embed(self, texts, input_type):  # pragma: no cover
+        raise AssertionError("embeddings must come from the primary provider")
+
+    def stream_chat(self, messages):
+        yield "fallback answer"
+
+
+def test_failover_uses_fallback_for_chat_but_primary_for_embeddings() -> None:
+    from app.services.llm import FailoverProvider
+
+    provider = FailoverProvider(_Failing(), _Answering())
+    assert provider.embed(["a"], "query") == [[1.0]]
+    assert "".join(provider.stream_chat([{"role": "user", "content": "hi"}])) == "fallback answer"
