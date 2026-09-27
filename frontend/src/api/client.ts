@@ -25,6 +25,7 @@ export const api = {
 export interface ChatHandlers {
   onSources: (sources: Source[]) => void
   onToken: (token: string) => void
+  onRestart: () => void
   onError: (message: string) => void
 }
 
@@ -44,6 +45,7 @@ export async function streamChat(
   const parse = createSSEParser(({ event, data }) => {
     if (event === 'sources') handlers.onSources(data as Source[])
     else if (event === 'token') handlers.onToken(data as string)
+    else if (event === 'restart') handlers.onRestart()
     else if (event === 'error') handlers.onError((data as { message: string }).message)
   })
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()

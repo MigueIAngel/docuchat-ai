@@ -67,3 +67,23 @@ def test_failover_uses_fallback_for_chat_but_primary_for_embeddings() -> None:
     provider = FailoverProvider(_Failing(), _Answering())
     assert provider.embed(["a"], "query") == [[1.0]]
     assert "".join(provider.stream_chat([{"role": "user", "content": "hi"}])) == "fallback answer"
+
+
+class _BreaksMidAnswer:
+    name = "primary"
+
+    def embed(self, texts, input_type):  # pragma: no cover
+        return [[1.0] for _ in texts]
+
+    def stream_chat(self, messages):
+        yield "partial "
+        raise ConnectionError("engine crashed")
+
+
+def test_failover_restarts_answer_when_primary_breaks_mid_stream() -> None:
+    from app.services.llm import FailoverProvider, Restart
+
+    tokens = list(FailoverProvider(_BreaksMidAnswer(), _Answering()).stream_chat([]))
+    assert tokens[0] == "partial "
+    assert isinstance(tokens[1], Restart)
+    assert tokens[2:] == ["fallback answer"]
