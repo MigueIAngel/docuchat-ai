@@ -21,6 +21,13 @@ logger = logging.getLogger(__name__)
 InputType = Literal["query", "passage"]
 
 
+class Restart(str):
+    """Marker yielded by FailoverProvider: discard the partial answer and start over."""
+
+
+RESTART = Restart("")
+
+
 class Provider(Protocol):
     name: str
 
@@ -111,7 +118,8 @@ class FailoverProvider:
 
     Embeddings must always come from the same model (vectors are not comparable
     across models), but any model can write the answer. If the primary provider
-    fails before producing a token, the fallback answers instead.
+    fails, the fallback answers instead; if it fails mid-answer, a RESTART marker
+    is yielded first so the client can discard the partial text.
     """
 
     def __init__(self, primary: Provider, fallback: Provider) -> None:
@@ -130,9 +138,10 @@ class FailoverProvider:
                 yield token
             return
         except Exception:
-            if started:
-                raise
             logger.warning("%s failed, answering with %s", self.primary.name, self.fallback.name)
+        if started:
+            # The partial answer is incomplete: tell the client to discard it.
+            yield RESTART
         yield from self.fallback.stream_chat(messages)
 
 
