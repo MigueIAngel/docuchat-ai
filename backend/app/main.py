@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import documents
+from app.api import chat, documents
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -18,6 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(documents.router)
+app.include_router(chat.router)
 
 
 @app.get("/api/health", tags=["health"])
