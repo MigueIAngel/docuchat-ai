@@ -12,6 +12,10 @@ Chat with your PDF documents. DocuChat AI is a **retrieval-augmented generation 
 
 ![Chat](docs/chat.jpg)
 
+**Live demo:** https://docuchat-ai-demo.onrender.com (click *Try it with the sample document*).
+
+> Hosted on Render's free plan: the first request after a period of inactivity can take up to a minute while the service wakes up. Demo data is reset on every restart.
+
 ## How it works
 
 ```
