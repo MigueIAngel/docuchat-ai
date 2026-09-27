@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import chromadb
+from chromadb.config import Settings as ChromaSettings
 
 from app.services.chunking import Chunk
 
@@ -38,10 +39,12 @@ class DocumentStore:
                 id TEXT PRIMARY KEY, filename TEXT NOT NULL, pages INTEGER NOT NULL,
                 chunks INTEGER NOT NULL, created_at TEXT NOT NULL)"""
         )
-        self._chroma = chromadb.PersistentClient(path=str(data_dir / "chroma"))
+        self._chroma = chromadb.PersistentClient(
+            path=str(data_dir / "chroma"), settings=ChromaSettings(anonymized_telemetry=False)
+        )
         # One collection per provider/model: embeddings from different models are not comparable.
         self._collection = self._chroma.get_or_create_collection(
-            collection, metadata={"hnsw:space": "cosine"}
+            collection, metadata={"hnsw:space": "cosine"}, embedding_function=None
         )
 
     def add(
