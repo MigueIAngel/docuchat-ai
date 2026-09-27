@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.api.deps import LLMDep, SettingsDep, StoreDep
+from app.services.llm import Restart
 from app.services.rag import build_messages
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,8 @@ def sse(event: str, data: object) -> str:
 def chat(request: ChatRequest, store: StoreDep, llm: LLMDep, settings: SettingsDep):
     """Answer a question about the documents as a Server-Sent Events stream.
 
-    Events: `sources` (retrieved passages), `token` (answer deltas), `done` or `error`.
+    Events: `sources` (retrieved passages), `token` (answer deltas), `restart` (discard the
+    partial answer: a fallback model is taking over), `done` or `error`.
     """
 
     def events() -> Iterator[str]:
@@ -58,7 +60,10 @@ def chat(request: ChatRequest, store: StoreDep, llm: LLMDep, settings: SettingsD
                 request.question, chunks, [m.model_dump() for m in request.history]
             )
             for token in llm.stream_chat(messages):
-                yield sse("token", token)
+                if isinstance(token, Restart):
+                    yield sse("restart", {})
+                else:
+                    yield sse("token", token)
             yield sse("done", {"provider": llm.name})
         except Exception:
             logger.exception("Chat request failed")

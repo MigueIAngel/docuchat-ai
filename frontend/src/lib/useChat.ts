@@ -31,6 +31,8 @@ export function useChat(errorMessage: string) {
           {
             onSources: (sources) => update(assistantId, (m) => ({ ...m, sources })),
             onToken: (token) => update(assistantId, (m) => ({ ...m, content: m.content + token })),
+            // A fallback model took over: drop the incomplete answer.
+            onRestart: () => update(assistantId, (m) => ({ ...m, content: '' })),
             onError: (message) => update(assistantId, (m) => ({ ...m, content: message, status: 'error' })),
           },
           controller.current.signal,
