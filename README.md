@@ -8,7 +8,7 @@
 ![Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?logo=google&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 
-Chat with your PDF documents. DocuChat AI is a **retrieval-augmented generation (RAG)** app: it indexes your PDFs, retrieves the passages relevant to each question and streams an answer that **cites the exact pages** it came from. It works with **NVIDIA NIM** or **Google Gemini**, and also runs offline in demo mode.
+Chat with your PDF documents. DocuChat AI is a **retrieval-augmented generation (RAG)** app: it indexes your PDFs, retrieves the passages relevant to each question and streams an answer that **cites the exact pages** it came from. It uses **Google Gemini** by default (NVIDIA NIM is supported as an alternative or fallback), and also runs offline in demo mode.
 
 ![Chat](docs/chat.jpg)
 
@@ -42,8 +42,8 @@ Question ──▶ embedding (query) ──▶ top-k search ◀─────�
 - **Streaming answers** with a stop button, suggested questions and follow-up questions (the conversation history is sent along)
 - **Clickable citations** `[n]` that show the source passage, file and page
 - Providers:
+  - **Gemini** (default): `gemini-3.5-flash` + `gemini-embedding-001`
   - **NVIDIA NIM**: `mistralai/mistral-nemotron` + `nvidia/nemotron-3-embed-1b`
-  - **Gemini**: `gemini-3.5-flash` + `gemini-embedding-001`
   - **Demo**: an offline fallback when no key is set, also used by the test suite
 - Both providers go through their **OpenAI-compatible APIs**, so a single client implementation covers them
 - Safe Markdown rendering in the UI (no raw HTML), English/Spanish, dark/light theme
@@ -67,7 +67,7 @@ Get a free key from [build.nvidia.com](https://build.nvidia.com) or [Google AI S
 
 ```bash
 cp backend/.env.example backend/.env
-# set LLM_PROVIDER=nvidia and NVIDIA_API_KEY=...   (or LLM_PROVIDER=gemini and GEMINI_API_KEY=...)
+# set GEMINI_API_KEY=...   (default provider; or LLM_PROVIDER=nvidia and NVIDIA_API_KEY=...)
 ```
 
 Without a key the app runs in **demo mode**: it uses keyword embeddings and returns an extractive answer.

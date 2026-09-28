@@ -23,7 +23,7 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    llm_provider: Provider = "nvidia"
+    llm_provider: Provider = "gemini"
     nvidia_api_key: str | None = None
     gemini_api_key: str | None = None
     chat_model: str | None = None
